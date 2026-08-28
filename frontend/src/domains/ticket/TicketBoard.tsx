@@ -81,6 +81,8 @@ export default function TicketBoard() {
   const [keyword, setKeyword] = useState('');
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<TicketStatus | null>(null);
+  const [statusReason, setStatusReason] = useState('');
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
@@ -95,11 +97,17 @@ export default function TicketBoard() {
   }, [tickets, statusFilter, keyword]);
 
   function handleChangeStatus(ticketId: number, toStatus: TicketStatus) {
-    const reason = window.prompt('사유를 입력하세요 (필수)');
-    if (!reason) return;
+    setStatusTarget(toStatus);
+    setStatusReason('');
+  }
+
+  function confirmChangeStatus() {
+    if (!selected || !statusTarget || !statusReason.trim()) return;
     // 실제로는: PATCH /api/tickets/{id}/status  { toStatus, reason }
-    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: toStatus } : t)));
-    setSelected((prev) => (prev && prev.id === ticketId ? { ...prev, status: toStatus } : prev));
+    setTickets((prev) => prev.map((t) => (t.id === selected.id ? { ...t, status: statusTarget } : t)));
+    setSelected((prev) => (prev ? { ...prev, status: statusTarget } : prev));
+    setStatusTarget(null);
+    setStatusReason('');
   }
 
   return (
@@ -226,6 +234,37 @@ export default function TicketBoard() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selected && statusTarget && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4" onClick={() => setStatusTarget(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">상태 변경 사유</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {STATUS_STYLE[selected.status].label}에서 {STATUS_STYLE[statusTarget].label}(으)로 변경합니다.
+            </p>
+            <textarea
+              autoFocus
+              value={statusReason}
+              onChange={(e) => setStatusReason(e.target.value)}
+              placeholder="변경 사유를 입력하세요"
+              rows={4}
+              className="mt-4 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setStatusTarget(null)} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+                취소
+              </button>
+              <button
+                onClick={confirmChangeStatus}
+                disabled={!statusReason.trim()}
+                className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                상태 변경
+              </button>
             </div>
           </div>
         </div>
