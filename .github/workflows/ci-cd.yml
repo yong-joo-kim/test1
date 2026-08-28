@@ -1,0 +1,47 @@
+name: CI/CD - as-cms-system
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc -p . --noEmit
+      - name: Unit & Contract Tests
+        run: npx jest --coverage
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+  deploy-staging:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - run: echo "스테이징 자동 배포 (테스트 통과 시에만 실행)"
+
+  deploy-production:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # 프로덕션은 반드시 사람 승인 필요 (GitHub Environment protection rule로 설정)
+    environment:
+      name: production
+    steps:
+      - run: echo "승인자 확인 완료 후 프로덕션 배포 실행"
+      - name: Rollback on failure
+        if: failure()
+        run: echo "배포 실패 감지 - 이전 안정 버전으로 자동 롤백"

@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: Ticket API
+  version: 1.0.0
+  description: AS 티켓 접수/상태관리 API (REQ-TICKET-001 기반)
+
+paths:
+  /api/tickets:
+    post:
+      summary: 티켓 접수 생성
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTicketRequest' }
+      responses:
+        '201':
+          description: 생성됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ticket' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+    get:
+      summary: 티켓 목록 검색
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/TicketStatus' }
+        - in: query
+          name: customerName
+          schema: { type: string }
+        - in: query
+          name: engineerId
+          schema: { type: integer }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items: { $ref: '#/components/schemas/Ticket' }
+                  page: { type: integer }
+                  size: { type: integer }
+                  totalElements: { type: integer }
+
+  /api/tickets/{id}:
+    get:
+      summary: 티켓 상세 조회
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tickets/{id}/status:
+    patch:
+      summary: 티켓 상태 전이
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeStatusRequest' }
+      responses:
+        '200':
+          description: 변경됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ticket' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  responses:
+    BadRequest:
+      description: 잘못된 요청 (예- invalid transition)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: 인증 필요
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: 권한 없음 (예- 타인 배정 티켓 상태변경 시도)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    TicketStatus:
+      type: string
+      enum: [RECEIVED, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED, HOLD]
+
+    TicketPriority:
+      type: string
+      enum: [LOW, NORMAL, HIGH, URGENT]
+
+    CreateTicketRequest:
+      type: object
+      required: [customerId, title, description, channel, priority]
+      properties:
+        customerId: { type: integer }
+        productId: { type: integer, nullable: true }
+        title: { type: string, maxLength: 200 }
+        description: { type: string }
+        channel: { type: string, enum: [PHONE, WEB, APP, EMAIL] }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+
+    ChangeStatusRequest:
+      type: object
+      required: [toStatus, reason]
+      properties:
+        toStatus: { $ref: '#/components/schemas/TicketStatus' }
+        reason: { type: string, maxLength: 500 }
+
+    Ticket:
+      type: object
+      properties:
+        id: { type: integer }
+        ticketNo: { type: string }
+        customerId: { type: integer }
+        title: { type: string }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+        status: { $ref: '#/components/schemas/TicketStatus' }
+        assignedEngineerId: { type: integer, nullable: true }
+        slaDueAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    TicketDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Ticket' }
+        - type: object
+          properties:
+            description: { type: string }
+            statusHistory:
+              type: array
+              items:
+                type: object
+                properties:
+                  fromStatus: { type: string, nullable: true }
+                  toStatus: { type: string }
+                  changedBy: { type: integer }
+                  reason: { type: string }
+                  changedAt: { type: string, format: date-time }
+
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
