@@ -1,3 +1,6 @@
+# test1
+vibe coding 시험용
+
 # AS-CMS System — 멀티 에이전트 Vibe Coding 자동개발 예제
 
 제품 AS/고객센터 운영관리 웹 시스템(100인 규모 SI)을 PM 에이전트가 총괄하고,
